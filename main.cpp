@@ -37,7 +37,7 @@ struct FileEntry {
 };
 
 vector<FileEntry> files;
-long blockNumber = -1;
+int blockNumber = -1;
 
 int main(int argc, char *argv[]) {
     cerr << "Hello, World!" << endl;
@@ -58,30 +58,38 @@ int main(int argc, char *argv[]) {
             print();
         }
 
+        cout << "Getting line of input from file!" << endl;
         getline(file, inputLine);
 
+        cout << "Got input from file! Selecting process method..." << endl;
         switch (inputLine.at(0)) {
             case 'C':
+                cout << "Selected COPY method! Processing request..." << endl;
                 copyFile(inputLine);
                 break;
 
             case 'D':
+                cout << "Selected DELETE method! Processing request..." << endl;
                 deleteFile(inputLine);
                 break;
 
             case 'N':
+                cout << "Selected NEW method! Processing request..." << endl;
                 createFile(inputLine);
                 break;
 
             case 'M':
+                cout << "Selected MODIFY method! Processing request..." << endl;
                 modifyFile(inputLine);
                 break;
 
             case 'R':
+                cout << "Selected RENAME method! Processing request..." << endl;
                 renameFile(inputLine);
                 break;
 
             default:
+                cout << "Selected END method! Terminating..." << endl;
                 shouldContinue = false;
                 break;
         }
