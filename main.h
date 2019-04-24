@@ -40,9 +40,9 @@ void copyEntry(const string &, const string &);
 
 void deleteEntry(const string &);
 
-void newEntry(const string &name, long size);
-
 void modifyEntry(const string &, long);
+
+void newEntry(const string &name, long size);
 
 void renameEntry(const string &, const string &);
 
@@ -63,14 +63,11 @@ void copyEntry(const string &originalName, const string &copyName) {
     long index = searchEntry(originalName);
     long duplicateIndex = searchEntry(copyName);
 
-    // If the original file cannot be found, exit
+    // If the original file cannot be found or new file name already exists, exit
     if (index < 0) {
         cerr << "ERROR 404: File \"" << originalName << "\" could not be located!" << endl;
         return;
-    }
-
-    // If the new file name already exists, exit
-    if (duplicateIndex > 0) {
+    } else if (duplicateIndex > 0) {
         cerr << "ERROR 409: File named \"" << copyName << "\" already exists!" << endl;
         return;
     }
@@ -93,7 +90,7 @@ void deleteEntry(const string &name) {
     long location = searchEntry(name);
 
     // If the location of the file cannot be found, exit
-    if (location == -1) {
+    if (location < 0) {
         cerr << "ERROR 404: File \"" << name << "\" could not be located!" << endl;
         return;
     } else {
@@ -106,63 +103,6 @@ void deleteEntry(const string &name) {
         files.erase(files.begin() + location);
         cerr << "File \"" << name << "\" has been deleted!" << endl;
     }
-}
-
-/**
- * This function will create a new entry in the file system with the provided name and size.
- * If the name is already taken, then the function will terminate early.
- *
- * @param name - the name for the new file
- * @param size - the size of the new file
- */
-void newEntry(const string &name, long size) {
-    long blockCount;
-    FileEntry tempFile;
-
-    // Check if the file name has already been taken, then exit
-    if (searchEntry(name) != -1) {
-        cerr << "ERROR 409: File name \"" << name << "\" is already in use!" << endl;
-        return;
-    }
-
-    // Create temporary file entry
-    tempFile.name = name;
-    tempFile.size = size;
-
-    // Calculate the required amount of blocks. If there is a remainder, add an extra 1.
-    if (size % BLOCK_SIZE > 0) {
-        blockCount = size / BLOCK_SIZE;
-        blockCount = blockCount + 1;
-    } else {
-        blockCount = size / BLOCK_SIZE;
-    }
-
-    int count = 1;
-
-    // Loop through the blocks that are needed
-    while (count <= blockCount) {
-        for (int i = 0; i < MAX_TABLE_SIZE; i++) {
-
-            // Set the last block to -1
-            if (fileAccessTable[i] == 0 && count == blockCount) {
-                fileAccessTable[i] = -1;
-                tempFile.blocks.push_back(i);
-                count++;
-                break;
-            } else if (fileAccessTable[i] == 0) {
-                // Mark the data blocks as in-use
-                fileAccessTable[i] = 1;
-                tempFile.blocks.push_back(i);
-                count++;
-                break;
-            }
-        }
-    }
-
-    // Push new file to the file access table listing
-    files.push_back(tempFile);
-
-    cerr << "A new file named \"" << name << "\" has been created!" << endl;
 }
 
 /**
@@ -179,13 +119,12 @@ void modifyEntry(const string &name, long size) {
 
     // Check for the existence of the file in question
     if (location == -1) {
-        cout << "ERROR 404: File \"" << name << "\" could not be located!" << endl;
-
         // If none is found, then exit.
+        cout << "ERROR 404: File \"" << name << "\" could not be located!" << endl;
         return;
     } else {
+        // Clear memory blocks in the file to 0
         for (auto &blocky: files.at(location).blocks) {
-            // Clear data to 0
             fileAccessTable[blocky] = 0;
         }
 
@@ -194,9 +133,65 @@ void modifyEntry(const string &name, long size) {
 
         // Create a new file with the same name
         newEntry(name, size);
-
         cerr << "File \"" << name << "\" has been modified with a new size of " << size << "!" << endl;
     }
+}
+
+/**
+ * This function will create a new entry in the file system with the provided name and size.
+ * If the name is already taken, then the function will terminate early.
+ *
+ * @param name - the name for the new file
+ * @param size - the size of the new file
+ */
+void newEntry(const string &name, long size) {
+    long blockCount;
+
+    // Check if the file name has already been taken, then exit
+    if (searchEntry(name) != -1) {
+        cerr << "ERROR 409: File name \"" << name << "\" is already in use!" << endl;
+        return;
+    }
+
+    // Create temporary file entry
+    FileEntry newFileEntry;
+    newFileEntry.name = name;
+    newFileEntry.size = size;
+
+    // Calculate the required amount of blocks. If there is a remainder, add an extra 1.
+    if (size % BLOCK_SIZE > 0) {
+        blockCount = (size / BLOCK_SIZE) + 1;
+    } else {
+        blockCount = size / BLOCK_SIZE;
+    }
+
+    int fileCount = 1;
+
+    // Loop through the blocks that are needed
+    while (fileCount <= blockCount) {
+        for (int i = 0; i < MAX_TABLE_SIZE; i++) {
+
+            // Set the last block to -1
+            if (fileAccessTable[i] == 0 && fileCount == blockCount) {
+                fileAccessTable[i] = -1;
+                newFileEntry.blocks.push_back(i);
+                fileCount++;
+
+                break;
+            } else if (fileAccessTable[i] == 0) {
+                // Mark the data blocks as in-use
+                fileAccessTable[i] = 1;
+                newFileEntry.blocks.push_back(i);
+                fileCount++;
+
+                break;
+            }
+        }
+    }
+
+    // Push new file to the file access table listing
+    files.push_back(newFileEntry);
+    cerr << "A new file named \"" << name << "\" has been created!" << endl;
 }
 
 /**
