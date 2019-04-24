@@ -39,7 +39,6 @@ int main() {
 
         // Read input line and tokenize it
         getline(inputFile, inputLine);
-
         istringstream streamer(inputLine);
 
         // Determine transaction type from input line

@@ -19,6 +19,11 @@ const int MAX_PRINT_SIZE = 240;
 const int MAX_TABLE_SIZE = 4096;
 const int BLOCK_SIZE = 512;
 
+/**
+ * This structure represents a file in the file system. It holds a name, which represents the name of the file,
+ * a size, which represents the amount of memory that the file takes up, and a vector of long integers, which
+ * represents the bytes of memory contained within the file.
+ */
 struct FileEntry {
     string name;
     long size = 0;
