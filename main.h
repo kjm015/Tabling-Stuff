@@ -236,6 +236,7 @@ long searchEntry(const string &entryName) {
         if (i.name == entryName) {
             return position;
         }
+
         position++;
     }
 
