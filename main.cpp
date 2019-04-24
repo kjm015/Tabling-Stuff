@@ -1,287 +1,324 @@
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <vector>
 #include <sstream>
-#include <cstddef>
-#include <algorithm>
-#include <list>
-#include <iomanip>
 
 using namespace std;
 
-const unsigned int HOW_OFTEN = 6;
-const unsigned int MAX_ENTRIES = 12;
-const unsigned int BLOCK_SIZE = 512;
-const unsigned int TABLE_SIZE = 4096;
+// Global constants
+const int HOW_OFTEN = 6;
+const int MAX_BLOCK_SIZE = 12;
+const int MAX_PRINT_SIZE = 240;
+const int MAX_TABLE_SIZE = 4096;
+const int BLOCK_SIZE = 512;
 
-const char *fileName = "data.txt";
-
-vector<int> directory(TABLE_SIZE, 0);
-
-void createFile(const string &);
-
-void deleteFile(const string &);
-
-void copyFile(const string &);
-
-void renameFile(const string &);
-
-void modifyFile(const string &);
-
-void print();
-
-struct FileEntry {
-    int size = 0;
+// Entry block for each file in the table
+struct Entry {
     string name;
+    int size = 0;
     vector<unsigned long> blocks;
 };
 
-vector<FileEntry> files;
-int blockNumber = -1;
+// File Allocation Table
+int FAT[MAX_TABLE_SIZE] = {};
+
+// Vector to hold file info
+vector<Entry> files;
+
+void copyEntry(const string &, const string &);
+
+void deleteEntry(const string &);
+
+void newEntry(const string &, int size);
+
+void modifyEntry(const string &, int size);
+
+void renameEntry(const string &, const string &);
+
+int searchEntry(const string &);
+
+void printTable();
+
 
 int main(int argc, char *argv[]) {
-    cerr << "Hello, World!" << endl;
+    // Print counter
+    int printCounter = 0;
 
+    // Open input file
     ifstream file;
-    file.open(fileName);
-    string inputLine;
+    file.open("data7.txt");
+    string line;
 
-    int cycle = 0;
-    bool shouldContinue = true;
+    // Create parent and this directory
+    newEntry(".", 512);
+    newEntry("..", 0);
 
-    createFile("N . 512");
-    createFile("N .. 0");
+    // Print table contents
+    printTable();
 
-    while (!file.eof() and shouldContinue) {
+    // Cycle through the entire input file
+    while (!file.eof()) {
+        char type;
+        string name;
+        string name2;
+        int size;
 
-        if (cycle % HOW_OFTEN == 0) {
-            print();
+        // Read input line and tokenize it
+        getline(file, line);
+        istringstream inLine(line);
+
+        // Determine transaction type from input line
+        if (line.at(0) == 'C') {
+            inLine >> type >> name >> name2;
+            copyEntry(name, name2);
+        } else if (line.at(0) == 'D') {
+            inLine >> type >> name;
+            deleteEntry(name);
+        } else if (line.at(0) == 'N') {
+            inLine >> type >> name >> size;
+            newEntry(name, size);
+        } else if (line.at(0) == 'M') {
+            inLine >> type >> name >> size;
+            modifyEntry(name, size);
+        } else if (line.at(0) == 'R') {
+            inLine >> type >> name >> name2;
+            renameEntry(name, name2);
+        } else {
+            break;
         }
 
-        cout << "Getting line of input from file!" << endl;
-        getline(file, inputLine);
+        printCounter++;
 
-        cout << "Got input from file! Selecting process method..." << endl;
-        switch (inputLine.at(0)) {
-            case 'C':
-                cout << "Selected COPY method! Processing request..." << endl;
-                copyFile(inputLine);
-                break;
-
-            case 'D':
-                cout << "Selected DELETE method! Processing request..." << endl;
-                deleteFile(inputLine);
-                break;
-
-            case 'N':
-                cout << "Selected NEW method! Processing request..." << endl;
-                createFile(inputLine);
-                break;
-
-            case 'M':
-                cout << "Selected MODIFY method! Processing request..." << endl;
-                modifyFile(inputLine);
-                break;
-
-            case 'R':
-                cout << "Selected RENAME method! Processing request..." << endl;
-                renameFile(inputLine);
-                break;
-
-            default:
-                cout << "Selected END method! Terminating..." << endl;
-                shouldContinue = false;
-                break;
+        if (printCounter % HOW_OFTEN == 0) {
+            printTable();
         }
-
-        cycle++;
     }
 
+    // Close the file
     file.close();
 
-    cerr << endl << "Program run complete!" << endl;
-
-    print();
-
+    // Print final table state and exit
+    printTable();
     return 0;
 }
 
-void createFile(const string &input) {
-    char transaction;
-    string name;
-    int size;
+void copyEntry(const string &name, const string &name2) {
+    // Find the file in the table
+    int index = searchEntry(name);
+    int noDup = searchEntry(name2);
 
-    istringstream stream(input);
-    stream >> transaction >> name >> size;
+    // If the original file cannot be found, exit
+    if (index < 0) {
+        // TODO: Modify output statements
+        cerr << "ERROR COPY: File " << name << " was not found." << endl;
+        return;
+    }
+
+    // If the new file name already exists, exit
+    if (noDup > 0) {
+        // TODO: Modify output statements
+        cerr << "ERROR COPY: File " << name2 << " was already in use." << endl;
+        return;
+    }
+
+    // Create a new table entry with the old information
+    newEntry(name2, files.at(index).size);
+
+    // TODO: Modify output statements
+    cerr << "COPY: File " << name << " has been copied to " << name2 << endl;
+
+}
+
+void deleteEntry(const string &name) {
+    // Find the file's location in the table
+    int location = searchEntry(name);
+
+    // If the location of the file cannot be found, exit
+    if (location == -1) {
+        // TODO: Modify output statements
+        cerr << "ERROR DELETE: File " << name << " was not found." << endl;
+        return;
+    } else {
+        // Delete the Entry's blocks by assigning them to 0
+        for (unsigned int i = 0; i < files.at(location).blocks.size(); i++) {
+            FAT[files.at(location).blocks.at(i)] = 0;
+        }
+
+        // Remove file from table listing
+        files.erase(files.begin() + location);
+
+        // TODO: Modify output statements
+        cerr << "DELETE: File " << name << " has been deleted." << endl;
+    }
+}
+
+
+void newEntry(const string &name, int size) {
+    int blockCount;
+    Entry tempFile;
+
+    // Check if the file name has already been taken, then exit
+    if (searchEntry(name) != -1) {
+        // TODO: Modify output statements
+        cerr << "ERROR NEW: File " << name << " is already in use." << endl;
+        return;
+    }
+
+    // Create temporary file entry
+    tempFile.name = name;
+    tempFile.size = size;
+
+    // Calculate the required amount of blocks. If there is a remainder, add an extra 1.
+    if (size % BLOCK_SIZE > 0) {
+        blockCount = size / BLOCK_SIZE;
+        blockCount = blockCount + 1;
+    } else {
+        blockCount = size / BLOCK_SIZE;
+    }
+
+    int count = 1;
+
+    // Loop through the blocks that are needed
+    while (count <= blockCount) {
+        for (int i = 0; i < MAX_TABLE_SIZE; i++) {
+
+            // Set the last block to -1
+            if (FAT[i] == 0 && count == blockCount) {
+                FAT[i] = -1;
+                tempFile.blocks.push_back(i);
+                count++;
+                break;
+            } else if (FAT[i] == 0) {
+                // Mark the data blocks as in-use
+                FAT[i] = 1;
+                tempFile.blocks.push_back(i);
+                count++;
+                break;
+            }
+        }
+    }
+
+    // Push new file to the file access table listing
+    files.push_back(tempFile);
+
+    // TODO: Modify output statements
+    cerr << "NEW: File " << name << " has been created." << endl;
+}
+
+
+void modifyEntry(const string &name, int size) {
+    // Find the file's location in the file access table.
+    int location = searchEntry(name);
+
+    // Check for the existence of the file in question
+    if (location == -1) {
+        // TODO: Modify output statements
+        cout << "ERROR MODIFY: File " << name << " was not found." << endl;
+
+        // If none is found, then exit.
+        return;
+    } else {
+        // Set data to 0
+        for (auto &blocky: files.at(location).blocks) {
+            FAT[blocky] = 0;
+        }
+
+        // Remove the file from the data table
+        files.erase(files.begin() + location);
+
+        // Create a new file with the same name
+        newEntry(name, size);
+
+        // TODO: Modify output statements
+        cerr << "MODIFY: File " << name << " has been modified." << endl;
+    }
+}
+
+void renameEntry(const string &name, const string &name2) {
+    // Search for the original file name
+    unsigned long findName = searchEntry(name);
+
+    // Check if the original file name is in the table
+    if (findName == -1) {
+        // TODO: Modify output statements
+        cerr << "ERROR RENAME: File " << name << " was not found." << endl;
+
+        // Exit if the file could not be located
+        return;
+    } else if (searchEntry(name2) >= 0) {
+        // TODO: Modify output statements
+        cerr << "ERROR COPY: File " << name << " is already in use." << endl;
+
+        // Exit if the new file name has already been taken
+        return;
+    } else {
+        // Modify the entry's name in the table
+        files.at(findName).name = name2;
+
+        // TODO: Modify output statements
+        cerr << "RENAME: File " << name << " has been Renamed." << endl;
+    }
+}
+
+int searchEntry(const string &name) {
+    int position = 0;
 
     for (const auto &i: files) {
+        // Check if the current entry's name matches the scanned entry
         if (i.name == name) {
-            cerr << "ERROR: Cannot create file with duplicate name!" << endl;
-            return;
+            return position;
         }
+        position++;
     }
 
-    FileEntry entry;
-    entry.name = name;
-    entry.size = size;
-
-    int blockCount = entry.size / BLOCK_SIZE;
-
-    int i = 1;
-    while (i <= blockCount) {
-        for (unsigned long j = 0; j < directory.size(); j++) {
-            if (directory.at(j) == 0 and i == blockCount) {
-                directory.at(j) = -1;
-                blockNumber++;
-                entry.blocks.push_back(j);
-                i++;
-                break;
-            } else if (directory.at(j) == 0) {
-                directory.at(j) = blockNumber;
-                blockNumber++;
-                entry.blocks.push_back(j);
-                i++;
-                break;
-            }
-        }
-    }
-    cerr << endl << "Created a new file named \"" << entry.name << "\" with size " << entry.size << "B!" << endl;
-    files.push_back(entry);
+    // Return -1 if no such file name was found in the table
+    return -1;
 }
 
-void deleteFile(const string &input) {
-    char transaction;
-    string name;
+void printTable() {
+    int total = 0;
 
-    istringstream stream;
-    stream >> transaction >> name;
+    // TODO: Modify output statements
+    cerr << endl << "Blocks occupied: " << endl;
 
-    for (unsigned long i = 0; i < files.size(); i++) {
-        if (files.at(i).name == name) {
-            for (auto &j: files.at(i).blocks) {
-                j = 0;
-            }
-            files.erase(files.begin() + i);
-        }
-    }
+    int i = 0;
 
-    cerr << endl << "Deleted a file named \"" << name << "\"!" << endl;
-}
+    // Print the entries' data blocks
+    while (i < MAX_PRINT_SIZE) {
+        cerr << i << " - " << i + MAX_BLOCK_SIZE << ": \t";
 
-void copyFile(const string &input) {
-    char transaction;
-    string name;
-    string newName;
-
-    istringstream stream(input);
-    stream >> transaction >> name >> newName;
-
-    int size = 0;
-    bool didFind = false;
-
-    for (const auto &item: files) {
-        if (item.name == name) {
-            size = item.size;
-            didFind = true;
-        } else if (item.name == newName) {
-            cerr << endl << "ERROR: Cannot copy file into file with same name!" << endl;
-            return;
-        }
-    }
-
-    if (didFind) {
-        createFile("N " + newName + " " + to_string(size));
-        cerr << "Copied existing file \"" << name << "\" to new file \"" << newName << "\"!" << endl;
-    } else {
-        cerr << endl << "ERROR: Cannot copy file that does not exist!" << endl;
-    }
-}
-
-void renameFile(const string &input) {
-    char transaction;
-
-    string oldName;
-    string newName;
-
-    istringstream stream;
-    stream >> transaction >> oldName >> newName;
-
-    bool didFind = false;
-
-    for (auto &i: files) {
-        if (i.name == oldName) {
-            didFind = true;
-            i.name = newName;
-            break;
-        } else if (i.name == newName or oldName == newName) {
-            cerr << endl << "ERROR: Tried to rename file to a name that already exists!" << endl;
-            return;
-        }
-    }
-
-    if (didFind) {
-        cerr << endl << "Changed file name from \"" << oldName << "\" to \"" << newName << "\"!" << endl;
-    } else {
-        cerr << endl << "ERROR: No file named \"" << oldName << "\" was found! " << endl;
-    }
-}
-
-void modifyFile(const string &input) {
-    char transaction;
-    string name;
-    string number;
-
-    istringstream stream;
-    stream >> transaction >> name >> number;
-
-    createFile("N " + name + "_copy " + number);
-    deleteFile("D " + name);
-    renameFile("R " + name + "_copy " + name);
-
-    cerr << endl << "Modified file \"" << name << "\"!" << endl;
-}
-
-void print() {
-    long totalSize = 0;
-
-    for (const auto &item: files) {
-        cerr << "File name: " << setw(20) << left << item.name << "\t" << "File size: " << item.size << endl;
-        totalSize += item.size;
-
-        cerr << "Clusters in use: ";
-        long indent = 1;
-
-        for (const auto &blocky: item.blocks) {
-            cerr << setw(6) << right << blocky;
-            if (indent % 12 == 0) {
-                cerr << endl;
-            }
-            indent++;
+        // Print the blocks' statuses
+        for (int j = 0; j <= MAX_BLOCK_SIZE; j++) {
+            cerr << FAT[j] << "\t";
         }
 
-        if (item.blocks.empty()) {
-            cerr << "None!";
-        }
-
-        cerr << endl << endl;
-    }
-
-    cerr << "Files: " << files.size() << "\t" << "File size:" << totalSize << endl << endl;
-    int indent = 0;
-
-    for (unsigned long i = 0; i < 240; i++) {
-        if (indent % 12 == 0) {
-            cerr << "#" << setw(3) << setfill('0') << i << " - " << setw(3) << setfill('0') << i + 11 << ": " << "\t"
-                 << setfill(' ');
-        }
-
-        cerr << right << setw(2) << directory.at(i) << "\t";
-        indent++;
-
-        if (indent % 12 == 0) {
-            cerr << endl;
-        }
+        i = i + MAX_BLOCK_SIZE;
+        cerr << endl;
     }
 
     cerr << endl;
+
+    // Print the memory blocks for each file
+    for (auto &file: files) {
+
+        // TODO: Modify output statements
+        cerr << "File Name: " << file.name << "\t File Size: " << file.size << "\t Blocks Used: ";
+
+        // If the file takes no space, then print a default value
+        if (file.blocks.empty()) {
+            cerr << "None!";
+        }
+
+        total = total + file.size;
+
+        for (auto &blocky: file.blocks) {
+            cerr << blocky << " ";
+        }
+
+        cerr << endl;
+    }
+
+    // TODO: Modify output statements
+    cerr << "Total number of files: " << files.size() - 1 << "\t Total Size: " << total << endl << endl;
 }
