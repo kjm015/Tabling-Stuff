@@ -45,6 +45,14 @@ long searchEntry(const string &);
 
 void printTable();
 
+/**
+ * This function copies a file into a new file. It does so by creating a new file with the provided new name
+ * with the same contents as the old file. If the old file name cannot be found or the new name already exists
+ * in the file system, then the function will exit.
+ *
+ * @param originalName - the name of the file to be copied from
+ * @param copyName - the new name for the copy that will be created
+ */
 void copyEntry(const string &originalName, const string &copyName) {
     // Find the file in the table
     long index = searchEntry(originalName);
@@ -68,6 +76,13 @@ void copyEntry(const string &originalName, const string &copyName) {
     cerr << "File \"" << originalName << "\" has been copied into new file \"" << copyName << "\"!" << endl;
 }
 
+/**
+ * This function will remove a file from the system. It will clear its memory blocks, then remove it from
+ * the file access table and the file list. If the provided file name cannot be located, the function will
+ * exit early.
+ *
+ * @param name - the name of the file to be deleted
+ */
 void deleteEntry(const string &name) {
     // Find the file's location in the table
     long location = searchEntry(name);
@@ -88,7 +103,13 @@ void deleteEntry(const string &name) {
     }
 }
 
-
+/**
+ * This function will create a new entry in the file system with the provided name and size.
+ * If the name is already taken, then the function will terminate early.
+ *
+ * @param name - the name for the new file
+ * @param size - the size of the new file
+ */
 void newEntry(const string &name, long size) {
     long blockCount;
     FileEntry tempFile;
@@ -139,7 +160,14 @@ void newEntry(const string &name, long size) {
     cerr << "A new file named \"" << name << "\" has been created!" << endl;
 }
 
-
+/**
+ * This function will modify a file entry in the system. It will locate the file with the given name,
+ * and then it will change the size of the file in the system to a new value that is provided. If the
+ * given file name cannot be found, then the function will exit early.
+ *
+ * @param name - the name of the file to be modified.
+ * @param size - the new size to be assigned to the file
+ */
 void modifyEntry(const string &name, long size) {
     // Find the file's location in the file access table.
     long location = searchEntry(name);
@@ -166,6 +194,14 @@ void modifyEntry(const string &name, long size) {
     }
 }
 
+/**
+ * This function will replace a given entry in the file system and replace it with a copy of the file
+ * with a new name. The function will exit if the target file is not found or the new name already exists
+ * in the file system.
+ *
+ * @param oldName - the name of the file that needs to be renamed
+ * @param newName - the name that the file will be renamed to
+ */
 void renameEntry(const string &oldName, const string &newName) {
     // Search for the original file name
     long location = searchEntry(oldName);
@@ -184,6 +220,14 @@ void renameEntry(const string &oldName, const string &newName) {
     }
 }
 
+/**
+ * This function will return the position of a given entry in the file access table. If no such entry is found,
+ * then this function will return -1 instead.
+ *
+ * @param entryName - the name of the entry to locate in the table
+ *
+ * @return the index of the entry in the files list
+ */
 long searchEntry(const string &entryName) {
     int position = 0;
 
@@ -199,8 +243,14 @@ long searchEntry(const string &entryName) {
     return -1;
 }
 
+/**
+ * This function prints the contents of the file access table. It scans through all of the data blocks
+ * for each entry in the table to determine what it contains, then prints the contents.
+ */
 void printTable() {
     long totalSize = 0;
+
+    cerr << endl << "<--------------------| FILE ACCESS TABLE CONTENTS |-------------------->" << endl << endl;
 
     for (const auto &item: files) {
         cerr << "File name: " << setw(20) << left << item.name << "\t" << "File size: " << item.size << endl;
@@ -221,7 +271,7 @@ void printTable() {
             cerr << "None!";
         }
 
-        cerr << endl << endl;
+        cerr << endl << "------------------------------------------------------------------" << endl << endl;
     }
 
     cerr << "Files: " << files.size() << "\t" << "File size:" << totalSize << endl << endl;
@@ -241,7 +291,7 @@ void printTable() {
         }
     }
 
-    cerr << endl;
+    cerr << endl << "<------------------------------------------------------------------->" << endl << endl;
 }
 
 #endif //ASSIGN7_MAIN_H
