@@ -13,26 +13,25 @@ const int MAX_PRINT_SIZE = 240;
 const int MAX_TABLE_SIZE = 4096;
 const int BLOCK_SIZE = 512;
 
-// Entry block for each file in the table
-struct Entry {
+struct FileEntry {
     string name;
     int size = 0;
-    vector<unsigned long> blocks;
+    vector<long> blocks;
 };
 
 // File Allocation Table
-int FAT[MAX_TABLE_SIZE] = {};
+int fileAccessTable[MAX_TABLE_SIZE] = {};
 
 // Vector to hold file info
-vector<Entry> files;
+vector<FileEntry> files;
 
 void copyEntry(const string &, const string &);
 
 void deleteEntry(const string &);
 
-void newEntry(const string &, int size);
+void newEntry(const string &name, long size);
 
-void modifyEntry(const string &, int size);
+void modifyEntry(const string &, long);
 
 void renameEntry(const string &, const string &);
 
@@ -41,12 +40,11 @@ long searchEntry(const string &);
 void printTable();
 
 int main(int argc, char *argv[]) {
-    // Print counter
-    int printCounter = 0;
+    cout << "Hello, world!" << endl << endl;
 
     // Open input file
-    ifstream file;
-    file.open("data7.txt");
+    ifstream inputFile;
+    inputFile.open("data7.txt");
     string inputLine;
 
     // Create parent and this directory
@@ -56,52 +54,68 @@ int main(int argc, char *argv[]) {
     // Print table contents
     printTable();
 
-    // Cycle through the entire input file
-    while (!file.eof()) {
-        vector<string> tokens;
+    // Create variables for program run
+    bool shouldContinue = true;
+    int printCounter = 0;
 
+    // Cycle through the entire input file
+    while (!inputFile.eof() and shouldContinue) {
         char type;
         string name;
         string name2;
         int size;
 
         // Read input line and tokenize it
-        getline(file, inputLine);
+        getline(inputFile, inputLine);
 
         istringstream streamer(inputLine);
 
         // Determine transaction type from input line
-        if (inputLine.at(0) == 'C') {
-            streamer >> type >> name >> name2;
-            copyEntry(name, name2);
-        } else if (inputLine.at(0) == 'D') {
-            streamer >> type >> name;
-            deleteEntry(name);
-        } else if (inputLine.at(0) == 'N') {
-            streamer >> type >> name >> size;
-            newEntry(name, size);
-        } else if (inputLine.at(0) == 'M') {
-            streamer >> type >> name >> size;
-            modifyEntry(name, size);
-        } else if (inputLine.at(0) == 'R') {
-            streamer >> type >> name >> name2;
-            renameEntry(name, name2);
-        } else {
-            break;
+        switch (inputLine.at(0)) {
+            case 'C':
+                streamer >> type >> name >> name2;
+                copyEntry(name, name2);
+                break;
+
+            case 'D':
+                streamer >> type >> name;
+                deleteEntry(name);
+                break;
+
+            case 'M':
+                streamer >> type >> name >> size;
+                modifyEntry(name, size);
+                break;
+
+            case 'N':
+                streamer >> type >> name >> size;
+                newEntry(name, size);
+                break;
+
+            case 'R':
+                streamer >> type >> name >> name2;
+                renameEntry(name, name2);
+                break;
+
+            default:
+                shouldContinue = false;
+                break;
         }
 
         printCounter++;
 
+        // Print table every HOW_OFTEN number of cycles
         if (printCounter % HOW_OFTEN == 0) {
             printTable();
         }
     }
 
-    // Close the file
-    file.close();
+    // Close the file when finished
+    inputFile.close();
 
     // Print final table state and exit
     printTable();
+    cerr << endl << "Program run complete!" << endl;
     return 0;
 }
 
@@ -112,13 +126,13 @@ void copyEntry(const string &originalName, const string &copyName) {
 
     // If the original file cannot be found, exit
     if (index < 0) {
-        cerr << "ERROR: File \"" << originalName << "\" could not be located!" << endl;
+        cerr << "ERROR 404: File \"" << originalName << "\" could not be located!" << endl;
         return;
     }
 
     // If the new file name already exists, exit
     if (duplicateIndex > 0) {
-        cerr << "ERROR: File named \"" << copyName << "\" already exists!" << endl;
+        cerr << "ERROR 409: File named \"" << copyName << "\" already exists!" << endl;
         return;
     }
 
@@ -134,31 +148,28 @@ void deleteEntry(const string &name) {
 
     // If the location of the file cannot be found, exit
     if (location == -1) {
-        // TODO: Modify output statements
-        cerr << "ERROR DELETE: File " << name << " was not found." << endl;
+        cerr << "ERROR 404: File \"" << name << "\" could not be located!" << endl;
         return;
     } else {
-        // Delete the Entry's blocks by assigning them to 0
+        // Clear table entry memory blocks
         for (auto &item : files.at(location).blocks) {
-            FAT[item] = 0;
+            fileAccessTable[item] = 0;
         }
 
-        // Remove file from table listing
+        // Remove file from table listing and print result
         files.erase(files.begin() + location);
-
-        // TODO: Modify output statements
-        cerr << "DELETE: File " << name << " has been deleted." << endl;
+        cerr << "File \"" << name << "\" has been deleted!" << endl;
     }
 }
 
 
-void newEntry(const string &name, int size) {
+void newEntry(const string &name, long size) {
     int blockCount;
-    Entry tempFile;
+    FileEntry tempFile;
 
     // Check if the file name has already been taken, then exit
     if (searchEntry(name) != -1) {
-        cerr << "ERROR: File name \"" << name << "\" is already in use!" << endl;
+        cerr << "ERROR 409: File name \"" << name << "\" is already in use!" << endl;
         return;
     }
 
@@ -181,14 +192,14 @@ void newEntry(const string &name, int size) {
         for (int i = 0; i < MAX_TABLE_SIZE; i++) {
 
             // Set the last block to -1
-            if (FAT[i] == 0 && count == blockCount) {
-                FAT[i] = -1;
+            if (fileAccessTable[i] == 0 && count == blockCount) {
+                fileAccessTable[i] = -1;
                 tempFile.blocks.push_back(i);
                 count++;
                 break;
-            } else if (FAT[i] == 0) {
+            } else if (fileAccessTable[i] == 0) {
                 // Mark the data blocks as in-use
-                FAT[i] = 1;
+                fileAccessTable[i] = 1;
                 tempFile.blocks.push_back(i);
                 count++;
                 break;
@@ -203,20 +214,20 @@ void newEntry(const string &name, int size) {
 }
 
 
-void modifyEntry(const string &name, int size) {
+void modifyEntry(const string &name, long size) {
     // Find the file's location in the file access table.
     long location = searchEntry(name);
 
     // Check for the existence of the file in question
     if (location == -1) {
-        cout << "ERROR: File \"" << name << "\" could not be located!" << endl;
+        cout << "ERROR 404: File \"" << name << "\" could not be located!" << endl;
 
         // If none is found, then exit.
         return;
     } else {
         for (auto &blocky: files.at(location).blocks) {
             // Clear data to 0
-            FAT[blocky] = 0;
+            fileAccessTable[blocky] = 0;
         }
 
         // Remove the file from the data table
@@ -262,51 +273,6 @@ long searchEntry(const string &entryName) {
     return -1;
 }
 
-void print() {
-    int total = 0;
-
-    // TODO: Modify output statements
-    cerr << endl << "Blocks occupied: " << endl;
-
-    int i = 0;
-
-    // Print the entries' data blocks
-    while (i < MAX_PRINT_SIZE) {
-        cerr << i << " - " << i + MAX_BLOCK_SIZE << ": \t";
-
-        // Print the blocks' statuses
-        for (int j = 0; j <= MAX_BLOCK_SIZE; j++) {
-            cerr << FAT[j] << "\t";
-        }
-
-        i = i + MAX_BLOCK_SIZE;
-        cerr << endl;
-    }
-
-    cerr << endl;
-
-    // Print the memory blocks for each file
-    for (auto &file: files) {
-
-        cerr << "File name: " << file.name << "\t File size: " << file.size << "\t Blocks used: ";
-
-        // If the file takes no space, then print a default value
-        if (file.blocks.empty()) {
-            cerr << "None!";
-        }
-
-        total = total + file.size;
-
-        for (auto &blocky: file.blocks) {
-            cerr << blocky << " ";
-        }
-
-        cerr << endl;
-    }
-
-    cerr << "Total number of files: " << files.size() - 1 << "\t Total file size: " << total << endl << endl;
-}
-
 void printTable() {
     long totalSize = 0;
 
@@ -319,7 +285,7 @@ void printTable() {
 
         for (const auto &blocky: item.blocks) {
             cerr << setw(6) << right << blocky;
-            if (indent % 12 == 0) {
+            if (indent % MAX_BLOCK_SIZE == 0) {
                 cerr << endl;
             }
             indent++;
@@ -335,16 +301,16 @@ void printTable() {
     cerr << "Files: " << files.size() << "\t" << "File size:" << totalSize << endl << endl;
     int indent = 0;
 
-    for (unsigned long i = 0; i < 240; i++) {
-        if (indent % 12 == 0) {
+    for (unsigned long i = 0; i < MAX_PRINT_SIZE; i++) {
+        if (indent % MAX_BLOCK_SIZE == 0) {
             cerr << "#" << setw(3) << setfill('0') << i << " - " << setw(3) << setfill('0') << i + 11 << ": " << "\t"
                  << setfill(' ');
         }
 
-        cerr << right << setw(2) << FAT[i] << "\t";
+        cerr << right << setw(2) << fileAccessTable[i] << "\t";
         indent++;
 
-        if (indent % 12 == 0) {
+        if (indent % MAX_BLOCK_SIZE == 0) {
             cerr << endl;
         }
     }
