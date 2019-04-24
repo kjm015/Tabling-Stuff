@@ -33,7 +33,7 @@ struct FileEntry {
 // File Allocation Table
 int fileAccessTable[MAX_TABLE_SIZE] = {};
 
-// Vector to hold file info
+// File system vector
 vector<FileEntry> files;
 
 void copyEntry(const string &, const string &);
@@ -148,7 +148,7 @@ void newEntry(const string &name, long size) {
     long blockCount;
 
     // Check if the file name has already been taken, then exit
-    if (searchEntry(name) != -1) {
+    if (searchEntry(name) >= 0) {
         cerr << "ERROR 409: File name \"" << name << "\" is already in use!" << endl;
         return;
     }
@@ -207,7 +207,7 @@ void renameEntry(const string &oldName, const string &newName) {
     long location = searchEntry(oldName);
 
     // Check if the original file name is in the table, exit if it could not be located or already exists
-    if (location == -1) {
+    if (location < 0) {
         cerr << "ERROR 404: File named \"" << oldName << "\" could not be located!" << endl;
         return;
     } else if (searchEntry(newName) >= 0) {
